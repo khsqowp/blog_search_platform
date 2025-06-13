@@ -17,27 +17,61 @@ configurations {
     compileOnly {
         extendsFrom annotationProcessor
     }
+    // 통합 테스트를 위한 별도의 configuration을 정의합니다.
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
 }
 
 repositories {
     mavenCentral()
 }
 
+// 통합 테스트를 위한 소스셋(Source Set)을 정의합니다.
+// 이제 src/integrationTest/java 폴더를 인식하게 됩니다.
+sourceSets {
+    integrationTest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+    implementation 'com.jayway.jsonpath:json-path' // PostSyncTest에서 사용하는 의존성
+
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
-
-    // 아래 한 줄을 추가해주세요.
     testImplementation 'com.h2database:h2'
 }
 
+// 기본 test 작업을 설정합니다. (단위 테스트만 실행)
 tasks.named('test') {
     useJUnitPlatform()
+    // integrationTest 폴더는 제외하여 순수 단위 테스트만 실행하도록 합니다.
+    exclude '**/*IntegrationTest*'
+    exclude '**/*SyncTest*'
+}
+
+// 통합 테스트를 위한 별도의 'integrationTest' 작업을 생성합니다.
+task integrationTest(type: Test) {
+    description = 'Runs integration tests.'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    useJUnitPlatform()
+
+    // Gradle check 실행 시, 통합 테스트도 함께 실행되도록 설정
+    shouldRunAfter(test)
+}
+
+tasks.named('check') {
+    dependsOn(integrationTest)
 }

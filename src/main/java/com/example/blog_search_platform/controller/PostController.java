@@ -28,15 +28,20 @@ public class PostController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * 게시글 수정 API
-     * @param postId 수정할 게시글의 ID
-     * @param request 수정할 내용을 담은 DTO
-     * @return 수정된 게시글 정보와 HTTP 상태 코드 200 (OK)
-     */
     @PatchMapping("/{postId}")
     public ResponseEntity<PostResponse> updatePost(@PathVariable Long postId, @RequestBody PostUpdateRequest request) {
         PostResponse response = postService.updatePost(postId, request);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 게시글 삭제 API
+     * @param postId 삭제할 게시글의 ID
+     * @return 내용 없이 HTTP 상태 코드 204 (No Content)
+     */
+    @DeleteMapping("/{postId}")
+    public ResponseEntity<Void> deletePost(@PathVariable Long postId) {
+        postService.deletePost(postId);
+        return ResponseEntity.noContent().build();
     }
 }

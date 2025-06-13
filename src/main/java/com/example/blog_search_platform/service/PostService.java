@@ -2,11 +2,13 @@ package com.example.blog_search_platform.service;
 
 import com.example.blog_search_platform.domain.Post;
 import com.example.blog_search_platform.dto.PostCreateRequest;
+import com.example.blog_search_platform.dto.PostEvent;
 import com.example.blog_search_platform.dto.PostResponse;
 import com.example.blog_search_platform.dto.PostUpdateRequest;
 import com.example.blog_search_platform.exception.PostNotFoundException;
 import com.example.blog_search_platform.repository.PostRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,11 +17,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class PostService {
 
     private final PostRepository postRepository;
+    private final ApplicationEventPublisher eventPublisher; // 이벤트 발행을 위한 객체
 
     @Transactional
     public PostResponse createPost(PostCreateRequest request) {
         Post newPost = request.toEntity();
         Post savedPost = postRepository.save(newPost);
+        // DB 트랜잭션이 성공적으로 commit된 후에 실행될 이벤트를 발행합니다.
+        eventPublisher.publishEvent(new PostEvent(savedPost.getId(), PostEvent.EventType.CREATED));
         return new PostResponse(savedPost);
     }
 
@@ -30,23 +35,20 @@ public class PostService {
         return new PostResponse(post);
     }
 
-    /**
-     * 특정 ID의 게시글을 수정합니다.
-     * @param postId 수정할 게시글의 ID
-     * @param request 수정할 내용을 담은 DTO
-     * @return 수정된 게시글 정보 DTO
-     */
     @Transactional
     public PostResponse updatePost(Long postId, PostUpdateRequest request) {
-        // 1. 수정할 게시글을 조회합니다. 없으면 예외가 발생합니다.
         Post postToUpdate = postRepository.findById(postId)
                 .orElseThrow(() -> new PostNotFoundException("존재하지 않는 게시글 ID 입니다: " + postId));
-
-        // 2. 도메인 객체의 update 메서드를 호출하여 변경합니다.
-        //    @Transactional 어노테이션 덕분에 메서드가 종료될 때 변경된 내용이 DB에 자동으로 반영됩니다 (Dirty Checking).
         postToUpdate.update(request.getTitle(), request.getContents());
-
-        // 3. 수정된 결과를 응답 DTO로 변환하여 반환합니다.
+        eventPublisher.publishEvent(new PostEvent(postToUpdate.getId(), PostEvent.EventType.UPDATED));
         return new PostResponse(postToUpdate);
+    }
+
+    @Transactional
+    public void deletePost(Long postId) {
+        Post postToDelete = postRepository.findById(postId)
+                .orElseThrow(() -> new PostNotFoundException("존재하지 않는 게시글 ID 입니다: " + postId));
+        postRepository.delete(postToDelete);
+        eventPublisher.publishEvent(new PostEvent(postId, PostEvent.EventType.DELETED));
     }
 }
