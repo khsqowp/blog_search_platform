@@ -49,6 +49,9 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'com.h2database:h2'
+
+    implementation 'org.springframework.kafka:spring-kafka'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
 }
 
 // 기본 test 작업을 설정합니다. (단위 테스트만 실행)
