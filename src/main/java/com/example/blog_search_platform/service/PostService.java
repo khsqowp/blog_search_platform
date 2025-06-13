@@ -3,34 +3,39 @@ package com.example.blog_search_platform.service;
 import com.example.blog_search_platform.domain.Post;
 import com.example.blog_search_platform.dto.PostCreateRequest;
 import com.example.blog_search_platform.dto.PostResponse;
+import com.example.blog_search_platform.exception.PostNotFoundException;
 import com.example.blog_search_platform.repository.PostRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Post 관련 비즈니스 로직을 처리하는 서비스 클래스
- */
 @Service
-@RequiredArgsConstructor // final이 붙은 필드를 인자로 받는 생성자를 자동으로 생성
+@RequiredArgsConstructor
 public class PostService {
 
     private final PostRepository postRepository;
 
-    /**
-     * 새로운 게시글을 생성합니다.
-     * @param request 게시글 생성 요청 DTO
-     * @return 생성된 게시글 정보 DTO
-     */
-    @Transactional // 메서드 전체가 하나의 트랜잭션으로 동작하도록 보장
+    @Transactional
     public PostResponse createPost(PostCreateRequest request) {
-        // 1. 요청 DTO를 엔티티로 변환
         Post newPost = request.toEntity();
-
-        // 2. 리포지토리를 통해 엔티티를 데이터베이스에 저장
         Post savedPost = postRepository.save(newPost);
-
-        // 3. 저장된 엔티티를 응답 DTO로 변환하여 반환
         return new PostResponse(savedPost);
+    }
+
+    /**
+     * 특정 ID의 게시글을 조회합니다.
+     * @param postId 조회할 게시글의 ID
+     * @return 조회된 게시글 정보 DTO
+     * @throws PostNotFoundException 해당 ID의 게시글이 존재하지 않을 경우
+     */
+    @Transactional(readOnly = true) // 조회 기능이므로 readOnly=true 옵션으로 성능 최적화
+    public PostResponse getPost(Long postId) {
+        // 1. 리포지토리에서 ID로 게시글을 찾습니다.
+        Post post = postRepository.findById(postId)
+                // 2. 만약 게시글이 존재하지 않으면, 직접 정의한 예외를 발생시킵니다.
+                .orElseThrow(() -> new PostNotFoundException("존재하지 않는 게시글 ID 입니다: " + postId));
+
+        // 3. 조회된 엔티티를 응답 DTO로 변환하여 반환합니다.
+        return new PostResponse(post);
     }
 }

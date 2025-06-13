@@ -3,6 +3,7 @@ package com.example.blog_search_platform.service;
 import com.example.blog_search_platform.domain.Post;
 import com.example.blog_search_platform.dto.PostCreateRequest;
 import com.example.blog_search_platform.dto.PostResponse;
+import com.example.blog_search_platform.exception.PostNotFoundException;
 import com.example.blog_search_platform.repository.PostRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,54 +12,81 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * PostService에 대한 단위 테스트.
- * 외부 의존성(PostRepository)을 Mock(가짜 객체)으로 대체하여 서비스 로직만 순수하게 테스트합니다.
- */
 @ExtendWith(MockitoExtension.class)
 class PostServiceTest {
 
-    @InjectMocks // 테스트 대상이 되는 클래스. @Mock으로 생성된 객체를 주입받습니다.
+    @InjectMocks
     private PostService postService;
 
-    @Mock // 가짜 객체로 만들 클래스
+    @Mock
     private PostRepository postRepository;
 
     @Test
     @DisplayName("게시글 생성 요청이 들어오면, 게시글을 성공적으로 생성한다.")
     void createPostSuccess() {
-        // given: 테스트를 위한 사전 준비
-        // 1. 생성 요청 DTO 생성
+        // given
         PostCreateRequest request = PostCreateRequest.builder()
                 .title("테스트 제목")
                 .contents("테스트 내용")
                 .build();
-
-        // 2. Mock Repository가 반환할 Post 엔티티를 미리 정의
         Post mockPost = Post.builder()
                 .title("테스트 제목")
                 .contents("테스트 내용")
                 .build();
-        // 실제로는 DB에 저장되지 않으므로, ID와 날짜를 수동으로 설정해줍니다.
-        // ReflectionTestUtils.setField(mockPost, "id", 1L);
-
-        // 3. postRepository.save() 메서드가 어떤 Post 객체든 인자로 받으면,
-        //    미리 정의한 mockPost를 반환하도록 설정
         when(postRepository.save(any(Post.class))).thenReturn(mockPost);
 
-        // when: 테스트하려는 실제 동작 실행
+        // when
         PostResponse response = postService.createPost(request);
 
-        // then: 테스트 결과 검증
+        // then
         assertThat(response.getTitle()).isEqualTo("테스트 제목");
         assertThat(response.getContents()).isEqualTo("테스트 내용");
-
-        // verify: postRepository.save() 메서드가 정확히 1번 호출되었는지 검증
         verify(postRepository).save(any(Post.class));
+    }
+
+    @Test
+    @DisplayName("존재하는 ID로 게시글을 조회하면, 성공적으로 조회된다.")
+    void getPostSuccess() {
+        // given
+        long postId = 1L;
+        Post mockPost = Post.builder()
+                .title("조회용 제목")
+                .contents("조회용 내용")
+                .build();
+        // repository가 Optional<Post>를 반환하도록 설정
+        when(postRepository.findById(anyLong())).thenReturn(Optional.of(mockPost));
+
+        // when
+        PostResponse response = postService.getPost(postId);
+
+        // then
+        assertThat(response.getTitle()).isEqualTo("조회용 제목");
+        assertThat(response.getContents()).isEqualTo("조회용 내용");
+        verify(postRepository).findById(postId);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 ID로 게시글을 조회하면, PostNotFoundException 예외가 발생한다.")
+    void getPostFail_whenPostNotFound() {
+        // given
+        long nonExistentPostId = 999L;
+        // repository가 빈 Optional을 반환하도록 설정
+        when(postRepository.findById(anyLong())).thenReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> postService.getPost(nonExistentPostId))
+                .isInstanceOf(PostNotFoundException.class)
+                .hasMessage("존재하지 않는 게시글 ID 입니다: " + nonExistentPostId);
+
+        verify(postRepository).findById(nonExistentPostId);
     }
 }
